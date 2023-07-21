@@ -1,118 +1,93 @@
-const fs = require('fs');
-const traineeFile = "./trainees.json";
+const TraineesModel = require('../models/trainees-model');
 
 // Read all Trainees
 function readAllTrainees(req, res) {
-    fs.readFile(traineeFile, 'utf8', (err, data) => {
-        if(err) console.log(err);
-
-        // res.send(JSON.stringify(data));
-        res.json(data);
-    });
+    try {
+        TraineesModel.find({})
+            .then(trainees => {
+                res.json(trainees);
+            })
+    } catch (err) {
+        res.json(err.message);
+    }
 }
 // readAllTrainees();
 
 // Read specific Trainee by Name/Email
 function readTrainee(req, res) {
-    fs.readFile(traineeFile, 'utf8', (err, data) => {
-        if(err) console.log(err);
+    try {
+        let {name, email} = req.body;
 
-        // querystring
-            // let qry = req.query;
-            // res.send(qry.name + " - " + qry.email);
-
-        // form body / req body (urlencoded)
-            // let qry = req.body;
-            // res.send(qry.nameTEST + " - " + qry.emailTEST);
-
-        // form body (JSON) / req body (JSON)
-            let {name, email} = req.body;
-            
-            let result = JSON.parse(data);
-            let output = result.filter(v => v.name === name && v.email === email);
-            (output.length > 0) 
-                ?
-                res.send(JSON.stringify(output))
-                : 
-                res.send("No Trainees Found!");
-    });
+        TraineesModel.find({"name": name, "email": email})
+            .then(trainees => {
+                (trainees.length > 0) 
+                    ? 
+                    res.json(trainees)
+                    :
+                    res.json("No Trainees found!!!");
+            })
+    } catch (err) {
+        res.json(err.message);
+    }
 }
 // readTrainee("Tony", "tony@gmail.com");
 
 // Add a new Trainee
-function addTrainee(req, res) {
+async function addTrainee(req, res) {
 
-    const traineeObj = req.body;
+    const Trainee = new TraineesModel(req.body);
 
-    fs.readFile(traineeFile, 'utf8', (err, data) => {
-        if(err) console.log(err);
+    try {
+        let traineeExists = await TraineesModel.find({"email": req.body.email});
 
-        let result = JSON.parse(data);
-        let output = result.filter(v => v.email === traineeObj.email);
-        if(output.length > 0) {
-            res.send("Trainee already exists!");
-        } else {
-            result.push(traineeObj);
-            fs.writeFile(traineeFile, JSON.stringify(result), (err) => {
-                if(err) console.log(err);
-                res.send("Trainee has been created!");
-            });
+        (traineeExists.length > 0)
+            ?
+            res.json("Trainee Already Exists!")
+            :
+            (await Trainee.save(), res.json("Trainee Added Successfully!"));
+    } catch(err) {
+        let errorList = [];
+        if(err.errors) {
+            for(let temp in err.errors) {
+                errorList.push(err.errors[temp].message)
+            }
         }
-    });
+        res.json(errorList);
+    }
 }
 // addTrainee("Raju", "raju@gmail.com", "January", "2023", "7-9pm");
 
 // Update a specific Trainee
 function updateTrainee(req, res) {
-    const traineeObj = req.body;
-
-    fs.readFile(traineeFile, 'utf8', (err, data) => {
-        if(err) console.log(err);
-
-        let flag = false;
-
-        let result = JSON.parse(data);
-        let traineeData = result.map(v => {
-            if(v.email === traineeObj.email) {
-                let temp = {...v};
-                for(let temp1 in traineeObj) {
-                    temp[temp1] = traineeObj[temp1];
-                }
-                flag = true;
-                return temp;
-            }
-            return v;
-        });
-        if(flag) {
-            fs.writeFile(traineeFile, JSON.stringify(traineeData), (err) => {
-                if(err) console.log(err);
-                res.send("Trainee has been updated!");
-            });
-        } else {
-            res.send("Trainee not found!");
-        }
-    });
+    try {
+        TraineesModel.updateOne({"email": req.body.email}, {$set: req.body})
+            .then(results => {
+                (results.modifiedCount > 0)
+                    ?
+                    res.json("Trainee Updated Successfully!")
+                    :
+                    res.json("Unable to update the Trainee!");
+            })
+    } catch (err) {
+        res.json(err.message);
+    }
 }
 // updateTrainee("Dinesh", "srinanoo@gmail.com", "January", 2023, "7-9pm");
 
 // Delete a specific Trainee
 function deleteTrainee(req, res) {
-    fs.readFile(traineeFile, 'utf8', (err, data) => {
-        if(err) console.log(err);
-
-        const traineeObj = req.body;
-
-        let result = JSON.parse(data);
-        let output = result.filter(v => v.email !== traineeObj.email);
-        if(output.length < result.length) {
-            fs.writeFile(traineeFile, JSON.stringify(output), (err) => {
-                if(err) console.log(err);
-                res.send("Trainee has been deleted!");
-            });
-        } else {
-            res.send("Trainee not found!");
-        }
-    });
+    try {
+        TraineesModel.deleteOne({"email": req.body.email})
+            .then(results => {
+                (results.deletedCount > 0)
+                    ?
+                    res.json("Trainee Deleted Successfully!")
+                    :
+                    res.json("Unable to delete the Trainee!");
+            })
+    } catch (err) {
+        res.json(err.message);
+    }
 }
 // deleleteTrainee("raju@gmail.com");
 
